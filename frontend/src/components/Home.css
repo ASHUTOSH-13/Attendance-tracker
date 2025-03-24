@@ -1,0 +1,101 @@
+.home-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    text-align: center;
+}
+
+.attendance-button {
+    background-color: #4CAF50;
+    color: white;
+    padding: 15px 32px;
+    text-align: center;
+    font-size: 16px;
+    margin: 20px 0;
+    cursor: pointer;
+    border: none;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+
+.attendance-button:hover {
+    background-color: #45a049;
+}
+
+.attendance-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.camera-container {
+    margin: 20px auto;
+    position: relative;
+    width: 100%;
+    max-width: 640px;
+}
+
+.camera-container video {
+    width: 100%;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+}
+
+.camera-container canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.camera-controls {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.camera-controls button {
+    padding: 10px 20px;
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.camera-controls button:last-child {
+    background-color: #f44336;
+}
+
+.message {
+    margin: 10px 0;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+.result {
+    margin-top: 20px;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.success {
+    background-color: #dff0d8;
+    border: 1px solid #d6e9c6;
+    color: #3c763d;
+}
+
+.failure {
+    background-color: #f2dede;
+    border: 1px solid #ebccd1;
+    color: #a94442;
+}
+
+.profile-thumbnail {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #4CAF50;
+    margin: 10px 0;
+}
