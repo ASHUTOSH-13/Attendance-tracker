@@ -15,6 +15,7 @@ const Register = () => {
     const [formData, setFormData] = useState({
         name: '',
         email: '',
+        password: '',
         profileImage: null
     });
     const [faceDescriptor, setFaceDescriptor] = useState(null);
@@ -176,6 +177,7 @@ const Register = () => {
             const formDataToSend = new FormData();
             formDataToSend.append('name', formData.name);
             formDataToSend.append('email', formData.email);
+            formDataToSend.append('password', formData.password);
             formDataToSend.append('profileImage', formData.profileImage);
             formDataToSend.append('faceDescriptor', JSON.stringify(Array.from(faceDescriptor)));
 
@@ -186,7 +188,7 @@ const Register = () => {
             });
 
             setMessage('User registered successfully!');
-            setFormData({ name: '', email: '', profileImage: null });
+            setFormData({ name: '', email: '', password: '', profileImage: null });
             setFaceDescriptor(null);
             setPreviewImage(null);
         } catch (error) {
@@ -219,6 +221,17 @@ const Register = () => {
                         id="email"
                         value={formData.email}
                         onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                        required
+                    />
+                </div>
+
+                <div className="form-group">
+                    <label htmlFor="password">Password:</label>
+                    <input
+                        type="password"
+                        id="password"
+                        value={formData.password}
+                        onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                         required
                     />
                 </div>

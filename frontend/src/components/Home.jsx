@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as faceapi from 'face-api.js';
 import axios from 'axios';
+import Login from './Login';
+import Register from './Register';
 import './Home.css';
 
 const Home = () => {
@@ -10,6 +12,9 @@ const Home = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
+    const [currentUser, setCurrentUser] = useState(null);
+    const [showLogin, setShowLogin] = useState(false);
+    const [showRegister, setShowRegister] = useState(false);
 
     const videoRef = useRef();
     const canvasRef = useRef();
@@ -227,14 +232,22 @@ const Home = () => {
                 const matchedUser = users.find(user => user._id === userId);
 
                 if (matchedUser) {
-                    // Mark attendance
-                    const response = await axios.post('http://localhost:5000/api/attendance/mark', { userId });
+                    try {
+                        // Mark attendance
+                        const response = await axios.post('http://localhost:5000/api/attendance/mark', { userId });
 
-                    setRecognitionResult({
-                        success: true,
-                        user: matchedUser,
-                        message: response.data.message || 'Attendance marked successfully!'
-                    });
+                        setRecognitionResult({
+                            success: true,
+                            user: matchedUser,
+                            message: response.data.message || 'Attendance marked successfully!'
+                        });
+                    } catch (error) {
+                        console.error('Error marking attendance:', error);
+                        setRecognitionResult({
+                            success: false,
+                            message: error.response?.data?.error || 'Error marking attendance'
+                        });
+                    }
                 } else {
                     setRecognitionResult({
                         success: false,
@@ -259,68 +272,115 @@ const Home = () => {
         stopCamera(); // Stop camera after recognition
     };
 
+    const handleLoginSuccess = (user) => {
+        setCurrentUser(user);
+        setShowLogin(false);
+        setMessage('Welcome back, ' + user.name + '!');
+    };
+
+    const handleLogout = () => {
+        setCurrentUser(null);
+        setMessage('');
+    };
+
     return (
         <div className="home-container">
-            <h2>Attendance System</h2>
-
-            {!cameraActive ? (
-                <button
-                    className="attendance-button"
-                    onClick={startCamera}
-                    disabled={initializing || loading}
-                >
-                    {initializing ? 'Loading Face Recognition...' : 'Mark Your Attendance'}
-                </button>
-            ) : (
-                <div className="camera-container">
-                    <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        style={{ width: '100%', maxWidth: '640px' }}
-                        onLoadedMetadata={() => {
-                            console.log('Video metadata loaded');
-                            setMessage('Camera active. Please position your face in the frame.');
-                        }}
-                        onError={(e) => {
-                            console.error('Video error:', e);
-                            setMessage('Error with video stream. Please try again.');
-                        }}
-                    />
-                    <canvas ref={canvasRef} style={{ display: 'none' }} />
-
-                    <div className="camera-controls">
-                        <button onClick={recognizeFace} disabled={loading}>
-                            {loading ? 'Processing...' : 'Verify Face'}
-                        </button>
-                        <button onClick={stopCamera}>Cancel</button>
-                    </div>
-                </div>
-            )}
-
-            {message && <p className="message">{message}</p>}
-
-            {recognitionResult && (
-                <div className={`result ${recognitionResult.success ? 'success' : 'failure'}`}>
-                    {recognitionResult.success ? (
+            <div className="header">
+                <h2>Attendance System</h2>
+                <div className="auth-buttons">
+                    {currentUser ? (
                         <>
-                            <h3>Attendance Marked!</h3>
-                            <p>Welcome, {recognitionResult.user.name}</p>
-                            <img
-                                src={`http://localhost:5000${recognitionResult.user.profileImage}`}
-                                alt="Profile"
-                                className="profile-thumbnail"
-                            />
-                            <p>{recognitionResult.message}</p>
+                            <span className="welcome-text">Welcome, {currentUser.name}</span>
+                            <button onClick={handleLogout} className="auth-button">
+                                Logout
+                            </button>
                         </>
                     ) : (
                         <>
-                            <h3>Recognition Failed</h3>
-                            <p>{recognitionResult.message}</p>
+                            <button onClick={() => setShowLogin(true)} className="auth-button">
+                                Login
+                            </button>
+                            <button onClick={() => setShowRegister(true)} className="auth-button">
+                                Register
+                            </button>
                         </>
                     )}
                 </div>
+            </div>
+
+            {showLogin ? (
+                <Login onLoginSuccess={handleLoginSuccess} />
+            ) : showRegister ? (
+                <Register />
+            ) : (
+                <>
+                    {!cameraActive ? (
+                        <button
+                            className="attendance-button"
+                            onClick={startCamera}
+                            disabled={initializing || loading}
+                        >
+                            {initializing ? 'Loading Face Recognition...' : 'Mark Your Attendance'}
+                        </button>
+                    ) : (
+                        <div className="camera-container">
+                            <video
+                                ref={videoRef}
+                                autoPlay
+                                playsInline
+                                muted
+                                style={{ width: '100%', maxWidth: '640px' }}
+                                onLoadedMetadata={() => {
+                                    console.log('Video metadata loaded');
+                                    setMessage('Camera active. Please position your face in the frame.');
+                                }}
+                                onError={(e) => {
+                                    console.error('Video error:', e);
+                                    setMessage('Error with video stream. Please try again.');
+                                }}
+                            />
+                            <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+                            <div className="camera-controls">
+                                <button onClick={recognizeFace} disabled={loading}>
+                                    {loading ? 'Processing...' : 'Verify Face'}
+                                </button>
+                                <button onClick={stopCamera}>Cancel</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {message && <p className="message">{message}</p>}
+
+                    {recognitionResult && (
+                        <div className={`result ${recognitionResult.success ? 'success' : 'failure'}`}>
+                            {recognitionResult.success ? (
+                                <>
+                                    <h3>Attendance Marked!</h3>
+                                    <p>Welcome, {recognitionResult.user.name}</p>
+                                    <img
+                                        src={`http://localhost:5000${recognitionResult.user.profileImage}`}
+                                        alt="Profile"
+                                        className="profile-thumbnail"
+                                    />
+                                    <p>{recognitionResult.message}</p>
+                                </>
+                            ) : (
+                                <>
+                                    <h3>Recognition Failed</h3>
+                                    <p>{recognitionResult.message}</p>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {!currentUser && (
+                        <div className="welcome-message">
+                            <h3>Welcome to the Attendance System</h3>
+                            <p>You can mark your attendance using face recognition. Login or register to access additional features.</p>
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );

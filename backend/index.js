@@ -4,6 +4,7 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -25,6 +26,7 @@ mongoose.connect('mongodb://localhost:27017/attendance-system', {
 const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
     profileImage: { type: String, required: true },
     faceDescriptor: { type: Array }, // Store face descriptors for recognition
     attendance: [{
@@ -58,17 +60,60 @@ app.use('/uploads', express.static('uploads'));
 // 1. Register a new user with face image
 app.post('/api/users/register', upload.single('profileImage'), async (req, res) => {
     try {
-        const { name, email, faceDescriptor } = req.body;
+        const { name, email, password, faceDescriptor } = req.body;
+
+        // Check if user already exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ success: false, error: 'User with this email already exists' });
+        }
+
+        // Hash password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
 
         const user = new User({
             name,
             email,
+            password: hashedPassword,
             profileImage: `/uploads/${req.file.filename}`,
             faceDescriptor: JSON.parse(faceDescriptor)
         });
 
         await user.save();
         res.status(201).json({ success: true, user });
+    } catch (error) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+// 2. Login user
+app.post('/api/users/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        // Find user
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(400).json({ success: false, error: 'Invalid credentials' });
+        }
+
+        // Check password
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ success: false, error: 'Invalid credentials' });
+        }
+
+        // Don't send password in response
+        const userResponse = {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            profileImage: user.profileImage,
+            faceDescriptor: user.faceDescriptor
+        };
+
+        res.status(200).json({ success: true, user: userResponse });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });
     }
@@ -114,8 +159,21 @@ app.post('/api/attendance/mark', async (req, res) => {
         user.attendance.push({ date: today, status: 'present' });
         await user.save();
 
-        res.status(200).json({ success: true, message: 'Attendance marked successfully', user });
+        // Return user data without sensitive information
+        const userResponse = {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            profileImage: user.profileImage
+        };
+
+        res.status(200).json({
+            success: true,
+            message: 'Attendance marked successfully',
+            user: userResponse
+        });
     } catch (error) {
+        console.error('Error marking attendance:', error);
         res.status(400).json({ success: false, error: error.message });
     }
 });
