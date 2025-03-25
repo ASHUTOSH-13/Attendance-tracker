@@ -276,6 +276,8 @@ const Home = () => {
         setCurrentUser(user);
         setShowLogin(false);
         setMessage('Welcome back, ' + user.name + '!');
+        // Navigate to dashboard after successful login
+        window.location.href = '/dashboard';
     };
 
     const handleLogout = () => {
@@ -309,7 +311,7 @@ const Home = () => {
             </div>
 
             {showLogin ? (
-                <Login onLoginSuccess={handleLoginSuccess} />
+                <Login onLogin={handleLoginSuccess} />
             ) : showRegister ? (
                 <Register />
             ) : (

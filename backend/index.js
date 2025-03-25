@@ -92,16 +92,30 @@ app.post('/api/users/login', async (req, res) => {
     try {
         const { email, password } = req.body;
 
+        // Validate input
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide both email and password'
+            });
+        }
+
         // Find user
         const user = await User.findOne({ email });
         if (!user) {
-            return res.status(400).json({ success: false, error: 'Invalid credentials' });
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password'
+            });
         }
 
         // Check password
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            return res.status(400).json({ success: false, error: 'Invalid credentials' });
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password'
+            });
         }
 
         // Don't send password in response
@@ -113,9 +127,17 @@ app.post('/api/users/login', async (req, res) => {
             faceDescriptor: user.faceDescriptor
         };
 
-        res.status(200).json({ success: true, user: userResponse });
+        res.status(200).json({
+            success: true,
+            message: 'Login successful',
+            user: userResponse
+        });
     } catch (error) {
-        res.status(400).json({ success: false, error: error.message });
+        console.error('Login error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'An error occurred during login. Please try again.'
+        });
     }
 });
 
@@ -188,6 +210,30 @@ app.get('/api/attendance/:userId', async (req, res) => {
 
         res.status(200).json({ success: true, attendance: user.attendance });
     } catch (error) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+// 5. Get user dashboard data
+app.get('/api/users/dashboard/:userId', async (req, res) => {
+    try {
+        const user = await User.findById(req.params.userId);
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+
+        // Return user data without sensitive information
+        const userResponse = {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            profileImage: user.profileImage,
+            attendance: user.attendance.sort((a, b) => b.date - a.date) // Sort attendance by date, newest first
+        };
+
+        res.status(200).json({ success: true, user: userResponse });
+    } catch (error) {
+        console.error('Error fetching dashboard data:', error);
         res.status(400).json({ success: false, error: error.message });
     }
 });
