@@ -1,7 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import * as faceapi from 'face-api.js';
 import axios from 'axios';
 import './Register.css';
+import {
+    loadFaceRecognitionModels,
+    processUploadedImage,
+    startCamera,
+    captureFaceFromCamera,
+    getCameraErrorMessage
+} from '../utils/faceRecognitionUtils';
 
 const Register = () => {
     const [initializing, setInitializing] = useState(true);
@@ -23,25 +29,17 @@ const Register = () => {
 
     // Initialize Face-API models
     useEffect(() => {
-        const loadModels = async () => {
-            const MODEL_URL = '/models';
-
+        const initializeModels = async () => {
             try {
-                await Promise.all([
-                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                    faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL)
-                ]);
-
+                await loadFaceRecognitionModels();
                 setInitializing(false);
-                console.log('Face recognition models loaded');
             } catch (error) {
                 console.error('Error loading models:', error);
                 setMessage('Error loading face recognition models');
             }
         };
 
-        loadModels();
+        initializeModels();
 
         return () => {
             if (streamRef.current) {
@@ -59,29 +57,9 @@ const Register = () => {
             setLoading(true);
             setMessage('Processing uploaded image...');
 
-            // Create a URL for preview
-            const imageUrl = URL.createObjectURL(file);
+            const { imageUrl, faceDescriptor } = await processUploadedImage(file);
             setPreviewImage(imageUrl);
-
-            // Create an image element to process with face-api
-            const img = new Image();
-            img.src = imageUrl;
-
-            await new Promise((resolve, reject) => {
-                img.onload = resolve;
-                img.onerror = reject;
-            });
-
-            // Detect face in the uploaded image
-            const detections = await faceapi.detectSingleFace(img)
-                .withFaceLandmarks()
-                .withFaceDescriptor();
-
-            if (!detections) {
-                throw new Error('No face detected in the uploaded image');
-            }
-
-            setFaceDescriptor(detections.descriptor);
+            setFaceDescriptor(faceDescriptor);
             setFormData(prev => ({ ...prev, profileImage: file }));
             setMessage('Face detected successfully! You can now submit the form.');
         } catch (error) {
@@ -96,7 +74,7 @@ const Register = () => {
     };
 
     // Start camera
-    const startCamera = async () => {
+    const handleStartCamera = async () => {
         if (initializing) {
             setMessage('Face recognition models are still loading...');
             return;
@@ -108,21 +86,7 @@ const Register = () => {
 
             await new Promise(resolve => setTimeout(resolve, 0));
 
-            let stream;
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: true
-                });
-            } catch (initialError) {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        width: { ideal: 640 },
-                        height: { ideal: 480 },
-                        facingMode: "user"
-                    }
-                });
-            }
-
+            const stream = await startCamera();
             console.log('Camera stream obtained:', stream);
             streamRef.current = stream;
 
@@ -156,19 +120,7 @@ const Register = () => {
             setMessage('Camera active. Please position your face in the frame.');
         } catch (error) {
             console.error('Detailed camera error:', error);
-            let errorMessage = 'Error accessing camera. ';
-
-            if (error.name === 'NotAllowedError') {
-                errorMessage += 'Please grant camera permissions in your browser settings.';
-            } else if (error.name === 'NotFoundError') {
-                errorMessage += 'No camera device found. Please connect a camera and try again.';
-            } else if (error.name === 'NotReadableError') {
-                errorMessage += 'Camera is in use by another application. Please close other apps using the camera.';
-            } else {
-                errorMessage += error.message;
-            }
-
-            setMessage(errorMessage);
+            setMessage(getCameraErrorMessage(error));
             setCameraActive(false);
 
             if (streamRef.current) {
@@ -187,42 +139,14 @@ const Register = () => {
     };
 
     // Capture face from camera
-    const captureFace = async () => {
-        if (!videoRef.current || !canvasRef.current) {
-            setMessage('Camera not ready');
-            return;
-        }
-
+    const handleCaptureFace = async () => {
         try {
             setLoading(true);
             setMessage('Capturing face...');
 
-            // Set canvas dimensions to match video
-            canvasRef.current.width = videoRef.current.videoWidth;
-            canvasRef.current.height = videoRef.current.videoHeight;
-
-            // Draw current video frame on canvas
-            const context = canvasRef.current.getContext('2d');
-            context.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
-
-            // Convert canvas to blob
-            const blob = await new Promise(resolve => canvasRef.current.toBlob(resolve, 'image/jpeg'));
-            const file = new File([blob], 'captured-face.jpg', { type: 'image/jpeg' });
-
-            // Create URL for preview
-            const imageUrl = URL.createObjectURL(file);
+            const { file, imageUrl, faceDescriptor } = await captureFaceFromCamera(videoRef, canvasRef);
             setPreviewImage(imageUrl);
-
-            // Detect face in the captured image
-            const detections = await faceapi.detectSingleFace(canvasRef.current)
-                .withFaceLandmarks()
-                .withFaceDescriptor();
-
-            if (!detections) {
-                throw new Error('No face detected in the captured image');
-            }
-
-            setFaceDescriptor(detections.descriptor);
+            setFaceDescriptor(faceDescriptor);
             setFormData(prev => ({ ...prev, profileImage: file }));
             setMessage('Face captured successfully! You can now submit the form.');
             stopCamera();
@@ -312,7 +236,7 @@ const Register = () => {
                                 <button
                                     type="button"
                                     className="camera-button"
-                                    onClick={startCamera}
+                                    onClick={handleStartCamera}
                                     disabled={initializing}
                                 >
                                     {initializing ? 'Loading...' : 'Capture from Camera'}
@@ -338,7 +262,7 @@ const Register = () => {
                                     <div className="camera-controls">
                                         <button
                                             type="button"
-                                            onClick={captureFace}
+                                            onClick={handleCaptureFace}
                                             disabled={loading}
                                         >
                                             {loading ? 'Processing...' : 'Capture Face'}
